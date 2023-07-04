@@ -68,86 +68,42 @@ int Handle_JPEG::handle_headers(unsigned short& Server_port, int Index, FILE* Pt
     {          
       throw Exeptions("Reading the packet header failed");
     }
-  }
-  catch (Exeptions& obj) 
-  {
-    throw obj;
-  }
-
-  try 
-  {
     if (Ptk_header.len < Ptk_header.caplen)                         //check if the packet is complete
     {             
       throw Exeptions(Ptk_header.len, Ptk_header.caplen, Index);
     }
-  }
-  catch (Exeptions& obj) 
-  {
-    throw obj;
-  }
-
-  try 
-  { 
     if (fread(&Ethernet, 14, 1, PtrFile) == 0)                     //read the ethernet header
     {          
       throw Exeptions("Reading the link layer header failed");
     }
-  }
-  catch (Exeptions& obj) 
-  {
-    throw obj;
-  }
 
-  Ethernet.VLAN_Protocol(PtrFile);                               //check for the VLAN protocol
-
-  unsigned char Ip_tcp_length = 0;                               //the length of the IP(first) and TCP(second) headers    
-
-  try 
-  {
+    Ethernet.VLAN_Protocol(PtrFile);                               //check for the VLAN protocol
+    unsigned char Ip_tcp_length = 0;                               //the length of the IP(first) and TCP(second) headers    
     if (fread(&Ip_tcp_length, 1, 1, PtrFile) == 0)              //reading the IP header length
     {         
       throw Exeptions("Reading the IP header letgth failed");
     }
-  }
-  catch (Exeptions& obj) 
-  {
-    throw obj;
-  }
+    int Ip_size = 4 * (Ip_tcp_length & 0x0F);                    //counting the IP header length 
+    fseek(PtrFile, Ip_size - 1, SEEK_CUR);                       //moving to the source port in TCP header
 
-  int Ip_size = 4 * (Ip_tcp_length & 0x0F);                    //counting the IP header length 
-  fseek(PtrFile, Ip_size - 1, SEEK_CUR);                       //moving to the source port in TCP header
+    if (fread(&Src_port, 2, 1, PtrFile) == 0)                 //reading the source port
+    {                  
+      throw Exeptions("Reading the source port failed");
+    }
 
-  try 
-  {
-     if (fread(&Src_port, 2, 1, PtrFile) == 0)                 //reading the source port
-     {                  
-       throw Exeptions("Reading the source port failed");
-     }
-  }
-  catch (Exeptions& obj) 
-  {
-    throw obj;
-  }
-
-  fseek(PtrFile, 10, SEEK_CUR);                                //moving to the TCP header length
-
-  try
-  {
+    fseek(PtrFile, 10, SEEK_CUR);                                //moving to the TCP header length
     if (fread(&Ip_tcp_length, 1, 1, PtrFile) == 0) 
     {           
       throw Exeptions("Reading the TCP header letgth failed");
     }
+    int TCP_size = (Ip_tcp_length >> 4) * 4;                                   //counting the TCP header length
+    fseek(PtrFile, (TCP_size - 13), SEEK_CUR);                                 //moving the pointer to the payload
   }
-  catch (Exeptions& obj) 
+  catch (Exeptions& obj)
   {
     throw obj;
   }
-
-  int TCP_size = (Ip_tcp_length >> 4) * 4;                                   //counting the TCP header length
-
-  fseek(PtrFile, (TCP_size - 13), SEEK_CUR);                                 //moving the pointer to the payload
-
-  return (Ptk_header.len - (sizeof(Ethernet) + Ip_size + TCP_size));         //the length of the payload
+   return (Ptk_header.len - (sizeof(Ethernet) + Ip_size + TCP_size));         //the length of the payload
 }
 
 void Handle_JPEG::parse(FILE* PtrFile, FILE* WriteFile) 
